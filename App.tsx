@@ -8,7 +8,7 @@
  * @format
  */
 
-import React, { useState} from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -19,6 +19,16 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import useBLE from './useBLE';
+
+import DeviceModal from './DeviceConnectionModal';
+
+import {
+  BleError,
+  BleManager,
+  Characteristic,
+  Device,
+} from 'react-native-ble-plx';
 
 
 
@@ -26,6 +36,24 @@ const App = () => {
   const connectedDevice = false;
 
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
+
+  const { requestPermissions, scanForDevices, allDevices } = useBLE();
+
+  const openModal = async () => {
+    requestPermissions((isGranted: boolean) => {
+      alert("The Android Permissions were granted : " + isGranted);
+      if (isGranted) {
+        scanForDevices()
+        setIsModalVisible(true);
+      }
+    })
+  }
+
+  const hideModal = () => {
+    setIsModalVisible(false);
+  };
+
+
 
 
   return (
@@ -38,24 +66,20 @@ const App = () => {
             <Text style={styles.heartRateText}>{heartRate} bpm</Text>
           </>
         ) : ( */}
-          <Text style={styles.heartRateTitleText}>
-            Please Connect to a Heart Rate Monitor
-          </Text>
-        {/* )} */}
-      </View>
-      {/* <TouchableOpacity
-        onPress={connectedDevice ? disconnectFromDevice : openModal}
-        style={styles.ctaButton}>
-        <Text style={styles.ctaButtonText}>
-          {connectedDevice ? 'Disconnect' : 'Connect'}
+        <Text style={styles.heartRateTitleText}>
+          Please Connect to a Heart Rate Monitor
         </Text>
+      </View>
+      <TouchableOpacity style={styles.ctaButton} onPress={openModal}>
+        <Text style={styles.ctaButtonText}>{'Connect'}</Text>
       </TouchableOpacity>
+
       <DeviceModal
         closeModal={hideModal}
         visible={isModalVisible}
-        connectToPeripheral={connectToDevice}
+        connectToPeripheral={hideModal}
         devices={allDevices}
-      /> */}
+      />
     </SafeAreaView>
   );
 };
