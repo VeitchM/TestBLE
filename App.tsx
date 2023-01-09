@@ -37,7 +37,7 @@ const App = () => {
 
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
 
-  const { requestPermissions, scanForDevices, allDevices } = useBLE();
+  const { requestPermissions, scanForDevices, allDevices, connectToDevice } = useBLE();
 
   const openModal = async () => {
     requestPermissions((isGranted: boolean) => {
@@ -77,7 +77,7 @@ const App = () => {
       <DeviceModal
         closeModal={hideModal}
         visible={isModalVisible}
-        connectToPeripheral={hideModal}
+        connectToPeripheral={connectToDevice}
         devices={allDevices}
       />
     </SafeAreaView>
