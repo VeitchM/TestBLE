@@ -33,15 +33,16 @@ import {
 
 
 const App = () => {
-  const connectedDevice = false;
 
+
+  
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
 
-  const { requestPermissions, scanForDevices, allDevices, connectToDevice } = useBLE();
+  const { bleMessage ,requestPermissions, scanForDevices, allDevices, connectToDevice, disconnectFromDevice, connectedDevice } = useBLE();
 
   const openModal = async () => {
     requestPermissions((isGranted: boolean) => {
-      alert("The Android Permissions were granted : " + isGranted);
+      console.log("The Android Permissions were granted : " + isGranted);
       if (isGranted) {
         scanForDevices()
         setIsModalVisible(true);
@@ -59,19 +60,20 @@ const App = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.heartRateTitleWrapper}>
-        {/* {connectedDevice ? (
+         {connectedDevice ? 
           <>
-            <PulseIndicator />
-            <Text style={styles.heartRateTitleText}>Your Heart Rate Is:</Text>
-            <Text style={styles.heartRateText}>{heartRate} bpm</Text>
+            <Text style={styles.heartRateTitleText}>The message from: {connectedDevice.name} is</Text>
+            <Text style={styles.heartRateText}>{bleMessage}</Text>
           </>
-        ) : ( */}
+          
+         : 
         <Text style={styles.heartRateTitleText}>
-          Please Connect to a Heart Rate Monitor
+          Please connect to a BLE device
         </Text>
+        }
       </View>
-      <TouchableOpacity style={styles.ctaButton} onPress={openModal}>
-        <Text style={styles.ctaButtonText}>{'Connect'}</Text>
+      <TouchableOpacity style={styles.ctaButton} onPress={connectedDevice ? disconnectFromDevice : openModal}>
+        <Text style={styles.ctaButtonText}>{connectedDevice ? 'Disconnect' : 'Connect'}</Text>
       </TouchableOpacity>
 
       <DeviceModal

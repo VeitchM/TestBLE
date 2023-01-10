@@ -11,6 +11,8 @@ import {
 import DeviceInfo from 'react-native-device-info';
 import { PERMISSIONS, requestMultiple } from 'react-native-permissions';
 
+import { atob } from 'react-native-quick-base64';
+
 type PermissionCallback = (result: boolean) => void
 
 const bleManager = new BleManager();
@@ -18,13 +20,18 @@ interface BluetoothLowEnergyApi {
     requestPermissions(callback: PermissionCallback): Promise<void>;
     scanForDevices(): void;
     allDevices: Device[];
-    connectToDevice(device:Device): Promise<void>;
+    connectToDevice(device: Device): Promise<void>;
+    disconnectFromDevice(): Promise<void>;
+    connectedDevice : Device | null;
+    bleMessage : string;
 }
 
 export default function useBLE(): BluetoothLowEnergyApi {
 
     const [allDevices, setAllDevices] = useState<Device[]>([]);
-    const [device, setConnectedDevice] = useState<Device|null>(null);
+    const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
+    const [services, setServices] = useState<Service[]>([]);
+    const [bleMessage, setBleMessage] = useState<string>('')
 
     const requestPermissions = async (callback: PermissionCallback) => {
         if (Platform.OS === 'android') {
@@ -73,7 +80,7 @@ export default function useBLE(): BluetoothLowEnergyApi {
     const scanForDevices = () => {
         bleManager.startDeviceScan(null, null, (error, device) => {
             if (error)
-               console.log(error);            
+                console.log(error);
             if (device && device.name) {
                 setAllDevices((prevState: Device[]) => {
                     if (!isDuplicateDevice(prevState, device)) {
@@ -86,37 +93,37 @@ export default function useBLE(): BluetoothLowEnergyApi {
         })
     }
 
-    const connectToDevice = async (device:Device)  =>  {
-        try{
-            console.log("device: ", device);
-            console.log("device.id : ",device.id);
-            console.log('device.name : ',device.name);
-            
-            
+    const connectToDevice = async (device: Device) => {
+        const MTU = 255
+        const showChar = (chars: Characteristic[]): string => {
+            let info = ''
+            chars.forEach((char) => info += 'Char uuid ' + char.uuid + ' Service uuid ' + char.serviceUUID)
+            return info
+        }
 
-            
-            const deviceConnection = await bleManager.connectToDevice(device.id)
+        try {
+
+
+
+
+
+            const deviceConnection = await bleManager.connectToDevice(device.id, { requestMTU: MTU })
             setConnectedDevice(deviceConnection);
-            const aux : Device= await deviceConnection.discoverAllServicesAndCharacteristics();
+            const aux: Device = await deviceConnection.discoverAllServicesAndCharacteristics();
             bleManager.stopDeviceScan();
-            alert("Connected to "+deviceConnection.name);
-            console.log("Blabla",deviceConnection);
-            const services : Service[] = await aux.services()
-            //device.readCharacteristicForService()
-            console.log('Aaauxilair ', aux   );
-            console.log('Aaauxilair ', aux.id   );
+            console.log("Blabla", deviceConnection);
+            const services: Service[] = await aux.services()
+            setServices(services);
 
-            console.log('Services ', services   );
-            console.log('Services 0 ', services[0]   );
-            console.log('Services 1 ', services[1]   );
-            console.log('cantidad de servicios',services.length);
-            
-            const characteristics = await services[0].characteristics()
-            console.log('Services 0  Characteristics', characteristics,' el largo ', characteristics.length   );
-            const characteristics2 = await services[1].characteristics()
-            console.log('Services 0  Characteristics', characteristics2, ' el largo ', characteristics2.length  );
-            const characteristics3 = await services[2].characteristics()
-            console.log('Services 0  Characteristics', characteristics3, ' el largo ', characteristics3.length  );
+            let auxCharacteristic: Characteristic[];
+            let auxCharacteristics: Characteristic[] = [];
+            for (let i = 0; i < services.length; i++) {
+                auxCharacteristic = await services[i].characteristics();
+                auxCharacteristics.push(...auxCharacteristic)
+            }
+
+
+            startStreamingData(device, auxCharacteristics)
 
 
 
@@ -124,24 +131,47 @@ export default function useBLE(): BluetoothLowEnergyApi {
 
 
         }
-        catch(e){
-            console.log('error aaaaah ' ,e);
-            
+        catch (e) {
+            console.log('error aaaaah ', e);
+
         }
     }
 
-    const startStreamingData = async (device:Device) => {
-        if(device){
-            device.monitorCharacteristicForService(
-                "", 
-                "",
-                () => {
+    const startStreamingData = async (device: Device, auxCharacteristics: Characteristic[]) => {
+        if (device) {
+            for (let index = 0; index < auxCharacteristics.length; index++) {
+                console.log(
 
-                }   
-                         )
+                    'charac length ', auxCharacteristics.length
+                );
+                console.log('Index ', index, ' characteristicUUID ', auxCharacteristics[index].uuid, ' ServiceUUID ', auxCharacteristics[index].serviceUUID);
+
+
+                device.monitorCharacteristicForService(
+                    auxCharacteristics[index].serviceUUID,
+                    auxCharacteristics[index].uuid,
+                    (error, result) => {
+                        if (error) {
+                            console.log('Error monitor', error);
+                        }
+                        const answer = result ? atob(result.value as string) : '';
+                        console.log('Monitor i:', index, ' result:', answer);
+                        setBleMessage(answer);
+
+                    }
+                )
+            }
         }
-        else{
+        else {
+            console.log('Error no device ', device);
 
+        }
+    }
+
+    const disconnectFromDevice = async () => {
+        if (connectedDevice) {
+            await bleManager.cancelDeviceConnection(connectedDevice.id);
+            setConnectedDevice(null);
         }
     }
 
@@ -149,6 +179,9 @@ export default function useBLE(): BluetoothLowEnergyApi {
         requestPermissions,
         scanForDevices,
         allDevices,
-        connectToDevice
+        connectToDevice,
+        disconnectFromDevice,
+        connectedDevice,
+        bleMessage
     }
 }
